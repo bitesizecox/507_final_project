@@ -21,6 +21,79 @@ SEARCH_HISTORY = []
 VIEW_HISTORY = []
 CART = []
 
+class JobOpps():
+    def __init__(self, name, lat, lng):
+        self.name = name
+        self.lat = lat
+        self.lng = lng
+
+    def __str__(self):
+        return self.name
+
+class College():
+    wage = 7.25
+    latitude = None
+    longitude = None
+    def __init__(self, name, type_, status, tuition, motto=None, president=None,
+                 colors=None, students=None, city=None, state=None, website=None, established=None, mascot=None):
+        self.name = name
+        self.type = type_
+        self.status = status.lower()
+        self.state = state
+        self.tuition = int(tuition)
+        self.motto = motto
+        self.president = president
+        self.colors = colors
+        self.students = students
+        self.city = city
+        self.website = website
+        self.established = established
+        self.mascot = mascot
+        self.latitude = None
+        self.longitude = None
+
+    def pay_tuition(self):
+        total_hours = round(self.tuition / self.wage)
+        return round(total_hours / 52)
+
+    def about(self):
+        print('\n')
+        print('\033[1m'+self.name)
+        # print('\033[0m'+'\n')
+        if self.motto != None:
+            print('\033[0m'+"{:<16} {}".format('Motto: ', self.motto))
+        if self.city != None:
+            print('\033[0m'+"{:<16} {}, {}".format('Location: ', self.city, self.state))
+        else:
+            print('\033[0m'+"{:<16} {}".format('Location: ',self.state))
+        print("{:<16} {} {} college".format('Type: ', self.type, self.status))
+        if self.established != None:
+            print("{:<16} {}".format('Established: ', self.established))
+        if self.students != None:
+            print("{:<16} {}".format('# Students: ', self.students))
+        print("{:<16} ${:,}".format('Annual Tuition: ', self.tuition))
+        if self.president != None:
+            print("{:<16} {}".format('President: ', self.president))
+        if self.colors != None:
+            print("{:<16} {}".format('School Colors: ', self.colors))
+        if self.mascot != None:
+            print("{:<16} {}".format('Mascot: ', self.mascot))
+        if self.website != None:
+            print("{:<16} {}".format('Website: ', self.website))
+        if self.city == None:
+            print('\n')
+            print("Unfortunately, there was no additional information available on Wikipedia about this school.")
+        print("\n")
+        print("You would have to work about \033[1m{:,}\033[0m hours a week at the federal minimum wage (thats $7.25 an hour!) to pay your tuition out of pocket.".format(self.pay_tuition()))
+        print("...and that's not including rent or food! Better start saving!")
+        print("\n")
+
+    def __str__(self):
+        if self.city != None:
+            return("{}: {} {} college; located in {}, {}; cost: ${:,} per year.".format(self.name, self.type, self.status, self.city, self.state, self.tuition))
+        else:
+            return("{}: {} {} college; located {}; cost: ${:,} per year.".format(self.name, self.type, self.status, self.state, self.tuition))
+
 
 def init_tuition_db(database_name):
     conn = sqlite3.connect(database_name)
@@ -329,79 +402,6 @@ def prettyprint(results):
         print("\n")
     else:
         print("That search didn't produce any results. Try again!")
-
-class JobOpps():
-    def __init__(self, name, lat, lng):
-        self.name = name
-        self.lat = lat
-        self.lng = lng
-
-    def __str__(self):
-        return self.name
-
-class College():
-    wage = 7.25
-    latitude = None
-    longitude = None
-    def __init__(self, name, type_, status, tuition, motto=None, president=None,
-                 colors=None, students=None, city=None, state=None, website=None, established=None, mascot=None):
-        self.name = name
-        self.type = type_
-        self.status = status.lower()
-        self.state = state
-        self.tuition = int(tuition)
-        self.motto = motto
-        self.president = president
-        self.colors = colors
-        self.students = students
-        self.city = city
-        self.website = website
-        self.established = established
-        self.mascot = mascot
-        self.latitude = None
-        self.longitude = None
-
-    def pay_tuition(self):
-        total_hours = round(self.tuition / self.wage)
-        return round(total_hours / 52)
-
-    def about(self):
-        print('\n')
-        print('\033[1m'+self.name)
-        # print('\033[0m'+'\n')
-        if self.motto != None:
-            print('\033[0m'+"{:<16} {}".format('Motto: ', self.motto))
-        if self.city != None:
-            print('\033[0m'+"{:<16} {}, {}".format('Location: ', self.city, self.state))
-        else:
-            print('\033[0m'+"{:<16} {}".format('Location: ',self.state))
-        print("{:<16} {} {} college".format('Type: ', self.type, self.status))
-        if self.established != None:
-            print("{:<16} {}".format('Established: ', self.established))
-        if self.students != None:
-            print("{:<16} {}".format('# Students: ', self.students))
-        print("{:<16} ${:,}".format('Annual Tuition: ', self.tuition))
-        if self.president != None:
-            print("{:<16} {}".format('President: ', self.president))
-        if self.colors != None:
-            print("{:<16} {}".format('School Colors: ', self.colors))
-        if self.mascot != None:
-            print("{:<16} {}".format('Mascot: ', self.mascot))
-        if self.website != None:
-            print("{:<16} {}".format('Website: ', self.website))
-        if self.city == None:
-            print('\n')
-            print("Unfortunately, there was no additional information available on Wikipedia about this school.")
-        print("\n")
-        print("You would have to work about \033[1m{:,}\033[0m hours a week at the federal minimum wage (thats $7.25 an hour!) to pay your tuition out of pocket.".format(self.pay_tuition()))
-        print("...and that's not including rent or food! Better start saving!")
-        print("\n")
-
-    def __str__(self):
-        if self.city != None:
-            return("{}: {} {} college; located in {}, {}; cost: ${:,} per year.".format(self.name, self.type, self.status, self.city, self.state, self.tuition))
-        else:
-            return("{}: {} {} college; located {}; cost: ${:,} per year.".format(self.name, self.type, self.status, self.state, self.tuition))
 
 
 
@@ -1121,12 +1121,11 @@ def interactive_prompt():
     response = ''
     while response != 'exit':
         response = input('Enter a command: ')
-        process_command(response)
-        # try:
-        #     process_command(response)
-        # except:
-        #     print("can't process command")
-        #     pass
+        try:
+            process_command(response)
+        except:
+            print("can't process command")
+            pass
         if response == 'help':
             print(help_text)
             continue

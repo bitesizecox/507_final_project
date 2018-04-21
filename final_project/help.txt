@@ -76,7 +76,7 @@ You MUST complete a search in order to utilize any other program functions:
 
 *	view_job_opps
 
-	>> Displays closest establishments within 3 mile radius of chosen school. Displays jobs for last 'viewed' school.
+	>> Displays closest establishments within 3 mile radius of chosen school. Displays jobs for last 'viewed' school. You're gonna need a job to pay for all that tuition!
 	- no input
 
 
