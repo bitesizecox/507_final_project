@@ -1,0 +1,134 @@
+
+{---------LEGEND----------}
+{ --- :: command category }
+{  *  :: command option }
+{ >>  :: additional info }
+{  -  :: command instruction }
+
+
+******************************
+**	   IMPORTANT NOTES      **
+******************************
+
+>> Make sure you don't put a space around your '=' sign
+	Good Example: state=mi
+	Bad example: state = mi
+>> Don't put '< >' around your parameter entires. Those are just there to make this a little easier to understand.
+
+
+******************************
+**	  Available Commands   **
+******************************
+
+--- EXIT
+*	Just type exit!
+
+---	Search for schools:
+
+The following five commands may be used in combination with one another to narrow your college search 
+down to specific results. Entering nothing returns the top ten most expensive colleges in the US. 
+You MUST complete a search in order to utilize any other program functions:
+
+*	state=<state abbreviation>
+
+	>> Confines school search to specified state. 
+	- enter 2 character state abbreviation.
+
+*	price_range=<above> | <below> | <between>
+
+	>> Allows search within specific price range:
+	- choose one of the three parameters to enter
+	- if between, you must add two additional commands* to specify your price range:
+		* price_low=<number>
+		* price_high=<number
+
+*	sortby=<public> | <private> | <4-year> | <2-year> | other
+
+	>> Confines school search to specified "type"
+	- choose one of the four parameters to enter
+
+*	orderby=<top> | <bottom>
+
+	>> Orders search results in either decending(top) or ascending(bottom) order. Defeault is set to top. 
+	- choose one of the four parameters to enter
+
+*	limit=<number>
+
+	>> Limits search results to specified number. Default is set to 10.
+	- enter a number
+
+*	college_name=<name of college>
+
+	>> Search for a school with a specific name. 
+	Overrides all other commands and is very particular, so watch your spellign!
+	- enter name of school
+
+
+---	View More Information
+
+*	view_school=<number>
+
+	>> Displays additional information on a specific taken from wikipedia.
+	- enter number affiliated with last school search
+
+
+---	View Jobs
+
+*	view_job_opps
+
+	>> Displays closest establishments within 3 mile radius of chosen school. Displays jobs for last 'viewed' school.
+	- no input
+
+
+---	Cart
+
+*	cart=<add> | <empty>
+
+	>> Storage compartment for user selected schools which can be compared by tution with a bar chart. 'add' option adds the last 'viewed' school to cart.
+	- choose one of two parameters to enter
+
+
+---	Search History
+
+*	view_history=<search> | <school>
+
+	>> Displays search or school view history.
+	- choose one of two parameters to enter
+
+*	clear_history=<search> | <view>
+
+	>> Clears search or school view history.
+	- choose one of two parameters to enter
+
+
+---	View Map
+
+*	see_map=<jobs> | <current_search>
+
+	>> Displays plot map in browser window of user selection.
+
+	-choose one of two parameters to enter.
+	>> 'jobs' can only function when a school has been viewed. Entering this command will display a map of jobs around the last 'viewed' school
+	>> 'current_search' displays a map of all of the schools in the last search performed, or the 'current search'. 
+
+
+---	View Graphs
+
+*	get_graph=<cart> | <current_search>
+
+	>> Displays bar graph in browser window of user selection.
+
+	-choose one of two parameters to enter.
+	>> 'cart' can only function if there are schools in your cart. 
+	This option dispays a bar graph comparing the tution of schools in your cart
+	>> 'current_search' displays a bar graph comparing the tuition of schools in the last search performed, or the 'current search'
+
+
+
+
+
+
+
+
+
+

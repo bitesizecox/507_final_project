@@ -5,6 +5,8 @@ import requests
 import json
 import locale
 import secrets
+import plotly.plotly as py
+import plotly.graph_objs as go
 
 locale.setlocale(locale.LC_ALL, 'en_US')
 
@@ -378,7 +380,7 @@ class College():
             print("{:<16} {}".format('Established: ', self.established))
         if self.students != None:
             print("{:<16} {}".format('# Students: ', self.students))
-        print("{:<16} {:,}".format('Annual Tuition: ', self.tuition))
+        print("{:<16} ${:,}".format('Annual Tuition: ', self.tuition))
         if self.president != None:
             print("{:<16} {}".format('President: ', self.president))
         if self.colors != None:
@@ -392,6 +394,7 @@ class College():
             print("Unfortunately, there was no additional information available on Wikipedia about this school.")
         print("\n")
         print("You would have to work about \033[1m{:,}\033[0m hours a week at the federal minimum wage (thats $7.25 an hour!) to pay your tuition out of pocket.".format(self.pay_tuition()))
+        print("...and that's not including rent or food! Better start saving!")
         print("\n")
 
     def __str__(self):
@@ -400,46 +403,281 @@ class College():
         else:
             return("{}: {} {} college; located {}; cost: ${:,} per year.".format(self.name, self.type, self.status, self.state, self.tuition))
 
-# class current():
-#     def __init__(self, lst)
-#     self.current = lst
 
-def get_coordinates(instance):
-    if instance.city != None:
-        conn = sqlite3.connect(DBNAME)
-        cur = conn.cursor()
 
-        statement = 'SELECT Latitude, Longitude '
-        statement += 'FROM Cities '
-        statement += 'WHERE CityName LIKE "{}%" AND State LIKE "{}%" '.format(instance.city[:8], instance.state)
+def get_coordinates(college_instance):
+    google_api = secrets.goog_secret
 
-        cur.execute(statement)
-        results = []
-        for row in cur:
-            results.append(row)
-        try:
-            instance.latitude = results[0][0]
-            instance.longitude = results[0][1]
-            return True
-        except:
-            print("Sorry, we couldn't gather geometrical data on that school.")
-    else:
+    base_url="https://maps.googleapis.com/maps/api/place/textsearch/json?"
+    params_dict={}
+    params_dict['query']=college_instance.name
+    params_dict['type']='school'
+    params_dict['key']=google_api
+    try:
+        results_json = make_request_using_cache(base_url, params_dict=params_dict)
+        results = json.loads(results_json)
+        lat = results['results'][0]["geometry"]["location"]["lat"]
+        lng = results['results'][0]["geometry"]["location"]["lng"]
+        college_instance.latitude = lat
+        college_instance.longitude = lng
+        return lat,lng
+    except:
         return False
+
+def compare_search(search=CURRENT_SEARCH):
+    search_instances=[]
+    for s in CURRENT_SEARCH:
+        search_instances.append(college_info(s))
+    x_vals = []
+    y_vals = []
+    text = []
+    for i in search_instances:
+        try:
+            x_vals.append(i.name)
+            y_vals.append(i.tuition)
+            text.append(("{}<br>{};{}".format(i.name,i.type,i.status)))
+        except:
+            print("Location info unavailable for {}. Excluding {} from search.".format(i.name, i.name))
+
+    trace0 = go.Bar(
+        x=x_vals,
+        y=y_vals,
+        text=text,
+        marker=dict(
+            color='rgb(158,202,225)',
+            line=dict(
+                color='rgb(8,48,107)',
+                width=1.5,
+            )
+        ),
+        opacity=0.6
+    )
+
+    data = [trace0]
+    layout = go.Layout(
+        title='Search Comparison',
+    )
+
+    fig = go.Figure(data=data, layout=layout)
+    py.plot(fig, filename='text-hover-bar')
+
+
+def compare_cart(cart=CART):
+    try:
+        if CART != []:
+            x_vals = []
+            y_vals=[]
+            for item in cart:
+                x_vals.append(item.name)
+                y_vals.append(item.tuition)
+            data = [go.Bar(
+                    x=x_vals,
+                    y=y_vals
+            )]
+
+            py.plot(data, filename='basic-bar')
+        else:
+            print("You haven't saved anything to your cart!")
+    except:
+        print("Having trouble...have you saved anything to your cart?")
+
+def plot_schools(current_search):
+    try:
+        school_instances=[]
+        lat_vals=[]
+        lon_vals=[]
+        text_vals=[]
+        for s in current_search:
+            school_instances.append(college_info(s))
+        for s in school_instances:
+            try:
+                coord=get_coordinates(s)
+                lat_vals.append(coord[0])
+                lon_vals.append(coord[1])
+                text_vals.append("{}<br>{}; {}<br>Tuition: ${:,}".format(s.name, s.type, s.status, s.tuition))
+            except:
+                print("Couldn't get coordinates for {}; continuing without.".format(s.name))
+        data = [ dict(
+                type = 'scattergeo',
+                locationmode = 'USA-states',
+                lon = lon_vals,
+                lat = lat_vals,
+                text = text_vals,
+                mode = 'markers',
+                marker = dict(
+                    size = 16,
+                    symbol = 'star',
+                ))]
+
+        min_lat = 10000
+        max_lat = -10000
+        min_lon = 10000
+        max_lon = -10000
+
+        for str_v in lat_vals:
+            v = float(str_v)
+            if v < min_lat:
+                min_lat = v
+            if v > max_lat:
+                max_lat = v
+        for str_v in lon_vals:
+            v = float(str_v)
+            if v < min_lon:
+                min_lon = v
+            if v > max_lon:
+                max_lon = v
+
+
+        max_range = max(abs(max_lat - min_lat), abs(max_lon - min_lon))
+        padding = max_range * .50
+
+        lat_axis = [min_lat, max_lat]
+        lon_axis = [min_lon, max_lon]
+
+        center_lat = (max_lat+min_lat) / 2
+        center_lon = (max_lon+min_lon) / 2
+
+
+        layout = dict(
+                title = 'Schools in Current Search<br>(Hover for school names)',
+                geo = dict(
+                    scope='usa',
+                    projection=dict( type='albers usa' ),
+                    showland = True,
+                    landcolor = "rgb(250, 250, 250)",
+                    subunitcolor = "rgb(100, 217, 217)",
+                    countrycolor = "rgb(217, 100, 217)",
+                    lataxis = {'range': lat_axis},
+                    lonaxis = {'range': lon_axis},
+                    center= {'lat': center_lat, 'lon': center_lon },
+                    countrywidth = 3,
+                    subunitwidth = 3
+                ),
+            )
+
+        fig = dict(data=data, layout=layout )
+        py.plot( fig, validate=False, filename='schools_in_search' )
+        return True
+    
+    except:
+        print("Sorry, but we couldn't get that map for some reason.")
+        print("Have you done a search?")
+        return False
+
+
+def plot_jobs(site_object):
+    try:
+        nearby_jobs = get_jobs(site_object)
+        if nearby_jobs == []:
+            return None
+        else:
+            site_name = [site_object.name + " " + site_object.type + site_object.status]
+            coordinates = get_coordinates(site_object)
+            site_lat = [coordinates[0]]
+            site_lon = [coordinates[1]]
+
+            places_names = []
+            places_lat_vals = []
+            places_lon_vals = []
+            for s in nearby_jobs:
+                places_names.append(s.name)
+                places_lat_vals.append(s.lat)
+                places_lon_vals.append(s.lng)
+
+            trace1 = dict(
+                    type = 'scattergeo',
+                    locationmode = 'USA-states',
+                    lon = site_lon,
+                    lat = site_lat,
+                    text = site_name,
+                    mode = 'markers',
+                    marker = dict(
+                        size = 20,
+                        symbol = 'star',
+                        color = 'purple'
+                    ))
+
+            trace2 = dict(
+                    type = 'scattergeo',
+                    locationmode = 'USA-states',
+                    lon = places_lon_vals,
+                    lat = places_lat_vals,
+                    text = places_names,
+                    mode = 'markers',
+                    marker = dict(
+                        size = 10,
+                        symbol = 'circle',
+                        color = 'purple',
+                        opacity = .5,
+                    ))
+
+            data = [trace1, trace2]
+
+            min_lat = 10000
+            max_lat = -10000
+            min_lon = 10000
+            max_lon = -10000
+
+            for str_v in places_lat_vals:
+                v = float(str_v)
+                if v < min_lat:
+                    min_lat = v
+                if v > max_lat:
+                    max_lat = v
+            for str_v in places_lon_vals:
+                v = float(str_v)
+                if v < min_lon:
+                    min_lon = v
+                if v > max_lon:
+                    max_lon = v
+
+            center_lat = (max_lat+min_lat) / 2
+            center_lon = (max_lon+min_lon) / 2
+            
+            max_range = max(abs(max_lat - min_lat), abs(max_lon - min_lon))
+            padding = max_range * .10
+            lat_axis = [min_lat - padding, max_lat + padding]
+            lon_axis = [min_lon - padding, max_lon + padding]
+
+            layout = dict(
+                    title = 'Places near {} in {}<br>(Hover for site names)'.format(site_object.name, site_object.state),
+                    geo = dict(
+                        scope='usa',
+                        projection=dict( type='albers usa' ),
+                        showland = True,
+                        showlakes = True,
+                        showocean = True,
+                        subunitcolor = "rgb(0,0,0)",
+                        countrycolor = "rgb(217, 100, 217)",
+                        lataxis = {'range': lat_axis},
+                        lonaxis = {'range': lon_axis},
+                        center= {'lat': center_lat, 'lon': center_lon },
+                        countrywidth = 3,
+                        subunitwidth = 3
+                    )
+                )
+
+            fig = dict(data=data, layout=layout )
+            py.plot( fig, validate=False, filename='nearby_jobs' )
+            return True
+    except:
+        print("Sorry, but we couldn't get that map for some reason.")
+        print("Have you viewed a school?")
+        return False
+
 
 def get_jobs(instance):
     google_api = secrets.goog_secret
     coordinates = get_coordinates(instance)
-    if coordinates == True:
+    if coordinates != False:
         try:
             base_url="https://maps.googleapis.com/maps/api/place/nearbysearch/json?location={},{}".format(CURRENT_SCHOOL.latitude, CURRENT_SCHOOL.longitude)
             params_dict={}
-            # params_dict['location'] = coordinates #why wont this work????
             params_dict['radius']=4828
-            params_dict['type']='establishment'
+            # params_dict['type']='establishment'
             params_dict['key']=google_api
 
             results_json = make_request_using_cache(base_url, params_dict)
-            # print(results_json)
             results = json.loads(results_json)
 
             nearby_places_info = {}
@@ -487,7 +725,10 @@ def scrape_wiki(collegeName):
         fixed_info =[]
         for i in semi_fixed_info:
             if i[-3] == '[':
-                fixed_info.append(i[:-3])
+                if i[-6] == '[':
+                    fixed_info.append(i[:-6])
+                else:
+                    fixed_info.append(i[:-3])
             elif i[-1] == ']':
                 count = 0
                 for c in i:
@@ -679,8 +920,14 @@ def view_cart():
 def view_history(input):
     if input == 'school':
         if len(VIEW_HISTORY) != 0:
-            for h in VIEW_HISTORY:
-                print(h)
+            for h in enumerate(VIEW_HISTORY, 1):
+                if len(VIEW_HISTORY) < 10:
+                    print('\033[1m{:>1}. \033[0m{}'.format(*h))
+                elif len(VIEW_HISTORY) < 100:
+                    print('\033[1m{:>2}. \033[0m{}'.format(*h))
+                else:
+                    print('\033[1m{:>3}. \033[0m{}'.format(*h))
+
         else:
             print("No current view history.")
     elif input == 'search':
@@ -689,7 +936,8 @@ def view_history(input):
             for h in SEARCH_HISTORY:
                 print('\033[1m'+"Search: {}".format(count))
                 for k in h.keys():
-                    print('\033[0m'+'{:<14}: {}'.format(k, h[k]))
+                    if h[k] != None:
+                        print('\033[0m'+'{:<14}: {}'.format(k, h[k]))
                 count+=1
         else:
             print("No current search history")
@@ -698,132 +946,169 @@ def view_history(input):
 
 
 def process_command(command):
-    non_college_commands = ['view_school', 'job_opps', 'cart', 'view_history', 'clear_history']
-    integer_params = ['price_low', 'price_high', 'price', 'limit']
-    params_dict = {'orderby':'top', 'limit':'10', 'sortby':None, 'price_range':None,
+    if command.lower() != 'exit':
+        non_college_commands = ['view_school', 'job_opps', 'cart', 'view_history', 'clear_history', 'see_map', 'get_graph']
+        integer_params = ['price_low', 'price_high', 'price', 'limit']
+        params_dict = {'orderby':'top', 'limit':'10', 'sortby':None, 'price_range':None,
                         'price':None,'price_low':None, 'price_high':None, 'state':None, 
-                            'college_name':None, 'view_school':None, 'job_opps':None,
-                                'cart':None, 'view_history':None, 'clear_history':None}
-    colleges_search_dict = {}
-    if 'college_name' in command:
-        count = 0
-        for c in command:
-            if c == "=":
-                count += 1
-        if count == 1:
-            split_command = command.split('=')
-            params_dict['college_name'] = split_command[1]
-        else:
-            print("Thats not a valid college search")
-            print("Remeber, your input should look something like:")
-            print("college_name=university of michigan")
-            return False
-
-    else:
-        split_command = command.lower().split()
-        user_commands = []
-        for s in split_command:
-            user_commands.append(s.split('='))
-        for c in user_commands:
-            if c[0] in params_dict.keys():
-                params_dict[c[0]] = c[1]
-            elif c[0] == "view_job_opps":
-                params_dict['job_opps']=True
+                        'college_name':None, 'view_school':None, 'job_opps':None,'cart':None, 
+                        'view_history':None, 'clear_history':None, 'see_map':None, 'get_graph':None}
+        colleges_search_dict = {}
+        if 'college_name' in command:
+            count = 0
+            for c in command:
+                if c == "=":
+                    count += 1
+            if count == 1:
+                split_command = command.split('=')
+                params_dict['college_name'] = split_command[1]
             else:
-                print('Problem with {} param line 712'.format(c[0]))
+                print("Thats not a valid college search")
+                print("Remeber, your input should look something like:")
+                print("college_name=university of michigan")
                 return False
-    if params_dict['clear_history'] == None:
-        if params_dict['view_history'] == None:
-            if params_dict['cart'] == None:
-                if params_dict['job_opps'] == None:
-                    if params_dict['view_school'] == None:
-                        for k in params_dict.keys():
-                            if k in non_college_commands:
-                                pass
-                            else:
-                                if k in integer_params and params_dict[k]!=None:
-                                    try:
-                                        params_dict[k] = int(params_dict[k])
-                                        colleges_search_dict[k] = params_dict[k]
-                                    except:
-                                        print("Problem with {}".format(k))
+
+        else:
+            split_command = command.lower().split()
+            user_commands = []
+            for s in split_command:
+                user_commands.append(s.split('='))
+            for c in user_commands:
+                if c[0] in params_dict.keys():
+                    params_dict[c[0]] = c[1]
+                elif c[0] == "view_job_opps":
+                    params_dict['job_opps']=True
+                else:
+                    print('Problem with command'.format(c[0]))
+                    return False
+        if params_dict['get_graph'] == None:
+            if params_dict['see_map'] == None:
+                if params_dict['clear_history'] == None:
+                    if params_dict['view_history'] == None:
+                        if params_dict['cart'] == None:
+                            if params_dict['job_opps'] == None:
+                                if params_dict['view_school'] == None:
+                                    for k in params_dict.keys():
+                                        if k in non_college_commands:
+                                            pass
+                                        else:
+                                            if k in integer_params and params_dict[k]!=None:
+                                                try:
+                                                    params_dict[k] = int(params_dict[k])
+                                                    colleges_search_dict[k] = params_dict[k]
+                                                except:
+                                                    print("Problem with {}".format(k))
+                                            else:
+                                                colleges_search_dict[k] = params_dict[k]
+                                    global SEARCH_HISTORY
+                                    SEARCH_HISTORY.append(colleges_search_dict)
+                                    user_search = colleges(colleges_search_dict)
+                                    global CURRENT_SEARCH
+                                    CURRENT_SEARCH = user_search
+                                    # print(user_search)
+                                    return user_search
                                 else:
-                                    colleges_search_dict[k] = params_dict[k]
-                        global SEARCH_HISTORY
-                        SEARCH_HISTORY.append(colleges_search_dict)
-                        user_search = colleges(colleges_search_dict)
-                        global CURRENT_SEARCH
-                        CURRENT_SEARCH = user_search
-                    else:
-                        try:
-                            view_school_input = int(params_dict['view_school'])-1
-                            school_search = CURRENT_SEARCH[view_school_input]
-                            view_school = college_info(school_search)
-                            global VIEW_HISTORY
-                            VIEW_HISTORY.append(view_school)
-                            global CURRENT_SCHOOL
-                            CURRENT_SCHOOL = view_school
-                            view_school.about()
-                            print('\n')
-                            print("This school has been saved to your search history.")
-                            print("Would you like to add it to your cart so you can compare it to other schools?")
-                            print("Type cart=add, or enter a new command.")
-                            print('\n')
-                        except:
-                            print("Sorry, but that option isn't available based on your last search. Try again.")
+                                    try:
+                                        view_school_input = int(params_dict['view_school'])-1
+                                        school_search = CURRENT_SEARCH[view_school_input]
+                                        view_school = college_info(school_search)
+                                        global VIEW_HISTORY
+                                        VIEW_HISTORY.append(view_school)
+                                        global CURRENT_SCHOOL
+                                        CURRENT_SCHOOL = view_school
+                                        view_school.about()
+                                        print('\n')
+                                        print("This school has been saved to your search history.")
+                                        print("Would you like to add it to your cart so you can compare it to other schools?")
+                                        print("Type cart=add, or enter a new command.")
+                                        print('\n')
+                                    except:
+                                        print("Sorry, but that option isn't available based on your last search. Try again.")
 
-                else:
-                    if CURRENT_SCHOOL != None:
-                        if CURRENT_SCHOOL.city != None:
-                            get_coordinates(CURRENT_SCHOOL)
-                            jobs = get_jobs(CURRENT_SCHOOL)
-                            if jobs != False:
-                                print('\033[1m'+"Jobs within 3 miles of {}:".format(CURRENT_SCHOOL.name))
-                                print('\033[0m')
-                                for j in jobs:
-                                    print(j)
                             else:
-                                print("Looks like theres no where to work.")
-                                print("This school is in the middle of nowhere. Don't go here!")
+                                if CURRENT_SCHOOL != None:
+                                    if CURRENT_SCHOOL.city != None:
+                                        get_coordinates(CURRENT_SCHOOL)
+                                        jobs = get_jobs(CURRENT_SCHOOL)
+                                        if jobs != False:
+                                            print('\033[1m'+"Jobs within 3 miles of {}:".format(CURRENT_SCHOOL.name))
+                                            print('\033[0m')
+                                            for j in jobs:
+                                                print(j)
+                                        else:
+                                            print("Looks like theres no where to work.")
+                                            print("This school is in the middle of nowhere. Don't go here!")
+                                    else:
+                                        print("I'm sorry, but we don't have enough information on {} to do that search.".format(view_school.name))
+                                        return False
+                                else:
+                                    print("You haven't viewed any schools yet.")
+                                    return False
                         else:
-                            print("I'm sorry, but we don't have enough information on {} to do that search.".format(view_school.name))
-                            return False
+                            if params_dict['cart'] == "add":
+                                global CART
+                                CART.append(CURRENT_SCHOOL)
+                                print("{} added to cart.".format(CURRENT_SCHOOL.name))
+                                print("\n")
+                            elif params_dict['cart'] == "view":
+                                if CART != []:
+                                    view_cart()
+                                else:
+                                    print("Your cart is empty!")
+                                    return False
+                            elif params_dict['cart'] == "empty":
+                                if CART != []:
+                                    CART = []
+                                    print("POOF. (thats magic talk for your cart is empty)")
+                                    return True
+                                else:
+                                    print("Your cart is already empty!")
+                                    return False
+                            else:
+                                print("Sorry, that's not a valid command")
+                                return False
+
                     else:
-                        print("You haven't viewed any schools yet.")
-            else:
-                if params_dict['cart'] == "add":
-                    global CART
-                    CART.append(CURRENT_SCHOOL)
-                elif params_dict['cart'] == "view":
-                    if CART != []:
-                        view_cart()
-                    else:
-                        print("Your cart is empty!")
-                elif params_dict['cart'] == "empty":
-                    if CART != []:
-                        CART = []
-                        pass
-                    else:
-                        print("Your cart is already empty!")
+                        view_history(params_dict['view_history'])
+
                 else:
-                    print("Sorry, that's not a valid command")
-
+                    if params_dict['clear_history'] == "school":
+                        VIEW_HISTORY = []
+                        print("School view history has been successfully erased")
+                        return True
+                    elif params_dict['clear_history'] == "search":
+                        SEARCH_HISTORY = []
+                        print("Search history has been successfully erased")
+                        return True
+                    elif params_dict['clear_history'] == "all":
+                        VIEW_HISTORY = []
+                        SEARCH_HISTORY = []
+                        print("All search history has been successfully erased")
+                        return True
+                    else:
+                        print("Sorry, but that's not a valid command.")
+                        return False
+            else:
+                if params_dict['see_map'] == 'jobs':
+                    plot_jobs(CURRENT_SCHOOL)
+                elif params_dict['see_map'] == 'current_search':
+                    plot_schools(CURRENT_SEARCH)
+                else:
+                    print("That's not a valid entry.")
+                    return False
         else:
-            view_history(params_dict['view_history'])
-
+            if params_dict['get_graph'] == 'cart':
+                print("Getting graph...")
+                compare_cart()
+            elif params_dict['get_graph'] == 'current_search':
+                print("Getting graph...")
+                compare_search()
+            else:
+                print("That's not a valid entry.")
+                return False
     else:
-        if params_dict['clear_history'] == "school":
-            VIEW_HISTORY = []
-            print("School view history has been successfully erased")
-        elif params_dict['clear_history'] == "search":
-            SEARCH_HISTORY = []
-            print("Search history has been successfully erased")
-        elif params_dict['clear_history'] == "all":
-            VIEW_HISTORY = []
-            SEARCH_HISTORY = []
-            print("All search history has been successfully erased")
-        else:
-            print("Sorry, but that's not a valid command.")
+        return 'exit'
+
 
 
 def load_help_text():
@@ -832,7 +1117,7 @@ def load_help_text():
 
 
 def interactive_prompt():
-    # help_text = load_help_text()
+    help_text = load_help_text()
     response = ''
     while response != 'exit':
         response = input('Enter a command: ')
@@ -843,7 +1128,7 @@ def interactive_prompt():
         #     print("can't process command")
         #     pass
         if response == 'help':
-            # print(help_text)
+            print(help_text)
             continue
 
 
